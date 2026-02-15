@@ -1,87 +1,97 @@
-// FaithTrack Resolution Service — CRUD + progress logging via localStorage
+import {
+    collection,
+    addDoc,
+    getDocs,
+    getDoc,
+    doc,
+    updateDoc,
+    deleteDoc,
+    query,
+    where
+} from 'firebase/firestore';
+import { db } from '../firebase';
 
-const RESOLUTIONS_KEY = 'faithtrack_resolutions';
-
-function getAll() {
-    const raw = localStorage.getItem(RESOLUTIONS_KEY);
-    return raw ? JSON.parse(raw) : [];
-}
-
-function saveAll(resolutions) {
-    localStorage.setItem(RESOLUTIONS_KEY, JSON.stringify(resolutions));
-}
+const COLLECTION_NAME = 'resolutions';
 
 /**
- * Create a new resolution.
- * @param {Object} data - { userId, title, category, target, unit, deadline, description }
- *   category: 'financial' | 'spiritual' | 'custom'
- *   For financial: target = amount (number), unit = currency label e.g. 'KES'
- *   For spiritual: target = total chapters (number), unit = 'chapters'
- *   For custom: target = any number, unit = custom label
+ * Create a new resolution in Firestore.
  */
-export function createResolution(data) {
-    const all = getAll();
-    const resolution = {
-        id: crypto.randomUUID(),
-        userId: data.userId,
-        title: data.title,
-        category: data.category,
-        target: Number(data.target),
-        unit: data.unit || '',
-        deadline: data.deadline,
-        description: data.description || '',
+export async function createResolution(data) {
+    const docRef = await addDoc(collection(db, COLLECTION_NAME), {
+        ...data,
         current: 0,
         entries: [],
         createdAt: new Date().toISOString(),
-    };
-    all.push(resolution);
-    saveAll(all);
-    return resolution;
+    });
+    return { id: docRef.id, ...data, current: 0, entries: [] };
 }
 
-export function getResolutions(userId) {
-    return getAll().filter(r => r.userId === userId);
+/**
+ * Get all resolutions for a specific user.
+ */
+export async function getResolutions(userId) {
+    const q = query(collection(db, COLLECTION_NAME), where("userId", "==", userId));
+    const querySnapshot = await getDocs(q);
+    return querySnapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+    }));
 }
 
-export function getResolution(id) {
-    return getAll().find(r => r.id === id) || null;
+/**
+ * Get a single resolution by ID.
+ */
+export async function getResolution(id) {
+    const docRef = doc(db, COLLECTION_NAME, id);
+    const docSnap = await getDoc(docRef);
+    if (docSnap.exists()) {
+        return { id: docSnap.id, ...docSnap.data() };
+    } else {
+        return null;
+    }
 }
 
-export function updateResolution(id, data) {
-    const all = getAll();
-    const idx = all.findIndex(r => r.id === id);
-    if (idx === -1) throw new Error('Resolution not found');
-    all[idx] = { ...all[idx], ...data };
-    saveAll(all);
-    return all[idx];
+/**
+ * Update a resolution.
+ */
+export async function updateResolution(id, data) {
+    const docRef = doc(db, COLLECTION_NAME, id);
+    await updateDoc(docRef, data);
+    const updatedSnap = await getDoc(docRef);
+    return { id: updatedSnap.id, ...updatedSnap.data() };
 }
 
-export function deleteResolution(id) {
-    const all = getAll();
-    saveAll(all.filter(r => r.id !== id));
+/**
+ * Delete a resolution.
+ */
+export async function deleteResolution(id) {
+    await deleteDoc(doc(db, COLLECTION_NAME, id));
 }
 
 /**
  * Log a progress entry.
- * @param {string} resolutionId
- * @param {Object} entry - { amount: number, note?: string }
  */
-export function logProgress(resolutionId, entry) {
-    const all = getAll();
-    const idx = all.findIndex(r => r.id === resolutionId);
-    if (idx === -1) throw new Error('Resolution not found');
+export async function logProgress(resolutionId, entry) {
+    const resolution = await getResolution(resolutionId);
+    if (!resolution) throw new Error('Resolution not found');
 
-    const progressEntry = {
+    const newEntry = {
         id: crypto.randomUUID(),
         amount: Number(entry.amount),
         note: entry.note || '',
         date: new Date().toISOString(),
     };
 
-    all[idx].entries.push(progressEntry);
-    all[idx].current = all[idx].entries.reduce((sum, e) => sum + e.amount, 0);
-    saveAll(all);
-    return all[idx];
+    const updatedEntries = [...(resolution.entries || []), newEntry];
+    const newCurrent = updatedEntries.reduce((sum, e) => sum + e.amount, 0);
+
+    const docRef = doc(db, COLLECTION_NAME, resolutionId);
+    await updateDoc(docRef, {
+        entries: updatedEntries,
+        current: newCurrent
+    });
+
+    return { ...resolution, entries: updatedEntries, current: newCurrent };
 }
 
 /**

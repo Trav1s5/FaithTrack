@@ -1,130 +1,113 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { getCurrentUser } from '../services/authService';
+import { useAuth } from '../context/AuthContext';
 import { createResolution } from '../services/resolutionService';
 import './NewResolutionPage.css';
 
-const CATEGORIES = [
-    { key: 'financial', icon: '💰', label: 'Financial', desc: 'Track savings, budgets, and financial goals', color: '#6200ea' },
-    { key: 'spiritual', icon: '📖', label: 'Spiritual', desc: 'Track Bible reading, prayer, and spiritual growth', color: '#ffc107' },
-    { key: 'custom', icon: '✨', label: 'Custom', desc: 'Track any personal goal or habit', color: '#00c853' },
-];
-
 export default function NewResolutionPage() {
     const navigate = useNavigate();
-    const user = getCurrentUser();
+    const { currentUser: user } = useAuth();
     const [step, setStep] = useState(1);
-    const [form, setForm] = useState({
-        category: '',
+    const [loading, setLoading] = useState(false);
+    const [formData, setFormData] = useState({
         title: '',
+        category: '',
         target: '',
         unit: '',
         deadline: '',
         description: '',
     });
-    const [error, setError] = useState('');
 
-    const handleCategorySelect = (cat) => {
-        let unit = '';
-        let title = '';
-        if (cat === 'financial') {
-            unit = 'KES';
-            title = 'Save ';
-        } else if (cat === 'spiritual') {
-            unit = 'chapters';
-            title = 'Read ';
-        }
-        setForm(prev => ({ ...prev, category: cat, unit, title }));
+    const categories = [
+        { id: 'financial', label: 'Financial', icon: '💰', desc: 'Save money, pay debt, give' },
+        { id: 'spiritual', label: 'Spiritual', icon: '📖', desc: 'Read Bible, pray, fast' },
+        { id: 'custom', label: 'Custom', icon: '✨', desc: 'Any other personal goal' },
+    ];
+
+    const handleCategorySelect = (catId) => {
+        setFormData({ ...formData, category: catId });
         setStep(2);
     };
 
     const handleChange = (e) => {
-        setForm(prev => ({ ...prev, [e.target.name]: e.target.value }));
+        setFormData({ ...formData, [e.target.name]: e.target.value });
     };
 
-    const handleSubmit = (e) => {
+    const handleSubmit = async (e) => {
         e.preventDefault();
-        setError('');
-        if (!form.title || !form.target || !form.deadline) {
-            setError('Please fill in all required fields.');
-            return;
-        }
+        if (!formData.title || !formData.target || !formData.deadline) return;
+
+        setLoading(true);
         try {
-            createResolution({ ...form, userId: user.id });
-            navigate('/resolutions');
-        } catch (err) {
-            setError(err.message);
+            await createResolution({
+                ...formData,
+                userId: user.uid,
+            });
+            navigate('/dashboard');
+        } catch (error) {
+            console.error('Error creating resolution:', error);
+            alert('Failed to create resolution. Please try again.');
+        } finally {
+            setLoading(false);
         }
     };
 
     return (
         <div className="page-container">
-            <h1 className="page-title">New Resolution</h1>
-            <p className="page-subtitle">
-                {step === 1 ? 'Choose a category for your resolution' : 'Set up your goal details'}
-            </p>
+            <div className="new-res-header">
+                <h1 className="page-title">New Resolution</h1>
+                <p className="page-subtitle">Step {step} of 2: {step === 1 ? 'Choose Category' : 'Set Details'}</p>
+            </div>
 
             {step === 1 && (
                 <div className="category-grid">
-                    {CATEGORIES.map(cat => (
-                        <button
-                            key={cat.key}
+                    {categories.map((cat) => (
+                        <div
+                            key={cat.id}
                             className="category-card glass-card"
-                            onClick={() => handleCategorySelect(cat.key)}
+                            onClick={() => handleCategorySelect(cat.id)}
                         >
-                            <span className="cat-icon">{cat.icon}</span>
+                            <div className="cat-icon">{cat.icon}</div>
                             <h3>{cat.label}</h3>
                             <p>{cat.desc}</p>
-                            <span className="cat-arrow">→</span>
-                        </button>
+                        </div>
                     ))}
                 </div>
             )}
 
             {step === 2 && (
-                <div className="new-res-form-wrapper">
-                    <button className="btn btn-secondary btn-sm" onClick={() => setStep(1)}>
-                        ← Change Category
-                    </button>
-                    <div className="selected-category">
-                        <span>{CATEGORIES.find(c => c.key === form.category)?.icon}</span>
-                        <span>{CATEGORIES.find(c => c.key === form.category)?.label} Resolution</span>
-                    </div>
-
-                    {error && <div className="auth-error">{error}</div>}
+                <div className="glass-card new-res-form-card">
+                    <button className="btn-text back-btn" onClick={() => setStep(1)}>← Back</button>
 
                     <form onSubmit={handleSubmit} className="new-res-form">
                         <div className="form-group">
-                            <label className="form-label">Resolution Title *</label>
+                            <label className="form-label">Resolution Title</label>
                             <input
                                 type="text"
                                 name="title"
                                 className="form-input"
                                 placeholder={
-                                    form.category === 'financial' ? 'e.g., Save 1,000,000 KES for school fees' :
-                                        form.category === 'spiritual' ? 'e.g., Read the entire Bible in 2026' :
-                                            'e.g., Exercise 3 times a week'
+                                    formData.category === 'financial' ? 'e.g. Save for Camp' :
+                                        formData.category === 'spiritual' ? 'e.g. Read Genesis' :
+                                            'e.g. Learn Guitar'
                                 }
-                                value={form.title}
+                                value={formData.title}
                                 onChange={handleChange}
+                                required
                             />
                         </div>
 
                         <div className="form-row">
                             <div className="form-group">
-                                <label className="form-label">Target Amount *</label>
+                                <label className="form-label">Target Amount</label>
                                 <input
                                     type="number"
                                     name="target"
                                     className="form-input"
-                                    placeholder={
-                                        form.category === 'financial' ? '1000000' :
-                                            form.category === 'spiritual' ? '1189' :
-                                                '100'
-                                    }
-                                    value={form.target}
+                                    placeholder="e.g. 500"
+                                    value={formData.target}
                                     onChange={handleChange}
-                                    min="1"
+                                    required
                                 />
                             </div>
                             <div className="form-group">
@@ -133,43 +116,44 @@ export default function NewResolutionPage() {
                                     type="text"
                                     name="unit"
                                     className="form-input"
-                                    placeholder="e.g., KES, chapters, hours"
-                                    value={form.unit}
+                                    placeholder={
+                                        formData.category === 'financial' ? 'USD' :
+                                            formData.category === 'spiritual' ? 'Chapters' :
+                                                'Hours'
+                                    }
+                                    value={formData.unit}
                                     onChange={handleChange}
                                 />
                             </div>
                         </div>
 
                         <div className="form-group">
-                            <label className="form-label">Deadline *</label>
+                            <label className="form-label">Deadline</label>
                             <input
                                 type="date"
                                 name="deadline"
                                 className="form-input"
-                                value={form.deadline}
+                                value={formData.deadline}
                                 onChange={handleChange}
+                                required
                             />
                         </div>
 
                         <div className="form-group">
-                            <label className="form-label">Description (optional)</label>
+                            <label className="form-label">Description (Optional)</label>
                             <textarea
                                 name="description"
-                                className="form-input form-textarea"
-                                placeholder="Add any notes about this resolution..."
-                                value={form.description}
+                                className="form-input"
+                                rows="3"
+                                placeholder="Why do you want to achieve this?"
+                                value={formData.description}
                                 onChange={handleChange}
                             />
                         </div>
 
-                        <div className="form-actions">
-                            <button type="button" className="btn btn-secondary" onClick={() => navigate('/resolutions')}>
-                                Cancel
-                            </button>
-                            <button type="submit" className="btn btn-primary btn-lg">
-                                🚀 Create Resolution
-                            </button>
-                        </div>
+                        <button type="submit" className="btn btn-primary btn-lg" disabled={loading}>
+                            {loading ? 'Creating...' : '✨ Create Resolution'}
+                        </button>
                     </form>
                 </div>
             )}

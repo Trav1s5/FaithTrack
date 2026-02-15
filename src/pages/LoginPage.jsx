@@ -1,10 +1,11 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { login } from '../services/authService';
+import { useAuth } from '../context/AuthContext';
 import './AuthPages.css';
 
 export default function LoginPage() {
     const navigate = useNavigate();
+    const { login } = useAuth();
     const [form, setForm] = useState({ email: '', password: '' });
     const [error, setError] = useState('');
     const [loading, setLoading] = useState(false);
@@ -13,7 +14,7 @@ export default function LoginPage() {
         setForm(prev => ({ ...prev, [e.target.name]: e.target.value }));
     };
 
-    const handleSubmit = (e) => {
+    const handleSubmit = async (e) => {
         e.preventDefault();
         setError('');
         if (!form.email || !form.password) {
@@ -22,10 +23,11 @@ export default function LoginPage() {
         }
         setLoading(true);
         try {
-            login(form.email, form.password);
+            await login(form.email, form.password);
             navigate('/dashboard');
         } catch (err) {
-            setError(err.message);
+            console.error(err);
+            setError('Failed to login. Please check your email and password.');
             setLoading(false);
         }
     };

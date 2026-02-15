@@ -1,8 +1,8 @@
-import { getCurrentUser } from '../services/authService';
+import { useAuth } from '../context/AuthContext';
 import './Header.css';
 
 export default function Header({ title, onMenuToggle }) {
-    const user = getCurrentUser();
+    const { currentUser: user } = useAuth();
 
     const getGreeting = () => {
         const hour = new Date().getHours();

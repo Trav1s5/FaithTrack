@@ -1,6 +1,7 @@
-import { useState, useEffect } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
-import { getResolution, logProgress, getProgressPercent, deleteResolution } from '../services/resolutionService';
+import { useEffect, useState } from 'react';
+import { useParams, useNavigate, Link } from 'react-router-dom';
+import { getResolution, logProgress, deleteResolution } from '../services/resolutionService';
+import { analyzePace } from '../services/feedbackService';
 import FeedbackPanel from '../components/FeedbackPanel';
 import {
     Chart as ChartJS,
@@ -8,6 +9,7 @@ import {
     LinearScale,
     PointElement,
     LineElement,
+    Title,
     Tooltip,
     Legend,
     Filler,
@@ -15,217 +17,211 @@ import {
 import { Line } from 'react-chartjs-2';
 import './ResolutionDetailPage.css';
 
-ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, Tooltip, Legend, Filler);
-
-const CATEGORY_ICONS = { financial: '💰', spiritual: '📖', custom: '✨' };
+ChartJS.register(
+    CategoryScale,
+    LinearScale,
+    PointElement,
+    LineElement,
+    Title,
+    Tooltip,
+    Legend,
+    Filler
+);
 
 export default function ResolutionDetailPage() {
     const { id } = useParams();
     const navigate = useNavigate();
     const [resolution, setResolution] = useState(null);
-    const [logAmount, setLogAmount] = useState('');
-    const [logNote, setLogNote] = useState('');
-    const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+    const [entryAmount, setEntryAmount] = useState('');
+    const [loading, setLoading] = useState(true);
 
     useEffect(() => {
-        const r = getResolution(id);
-        if (!r) {
-            navigate('/resolutions');
-            return;
+        async function fetchResolution() {
+            if (id) {
+                try {
+                    const data = await getResolution(id);
+                    if (data) {
+                        setResolution(data);
+                    } else {
+                        console.error('Resolution not found');
+                        navigate('/dashboard');
+                    }
+                } catch (error) {
+                    console.error('Error fetching resolution:', error);
+                } finally {
+                    setLoading(false);
+                }
+            }
         }
-        setResolution(r);
-    }, [id]);
+        fetchResolution();
+    }, [id, navigate]);
 
-    if (!resolution) return null;
-
-    const percent = getProgressPercent(resolution);
-    const remaining = Math.max(0, resolution.target - resolution.current);
-
-    const handleLog = (e) => {
+    const handleLogProgress = async (e) => {
         e.preventDefault();
-        if (!logAmount || Number(logAmount) <= 0) return;
-        const updated = logProgress(resolution.id, { amount: Number(logAmount), note: logNote });
-        setResolution(updated);
-        setLogAmount('');
-        setLogNote('');
+        if (!entryAmount) return;
+        try {
+            const updated = await logProgress(resolution.id, { amount: entryAmount });
+            setResolution(updated);
+            setEntryAmount('');
+        } catch (error) {
+            console.error("Failed to log progress:", error);
+            alert("Failed to log progress. Please try again.");
+        }
     };
 
-    const handleDelete = () => {
-        deleteResolution(resolution.id);
-        navigate('/resolutions');
+    const handleDelete = async () => {
+        if (window.confirm('Are you sure you want to delete this resolution?')) {
+            try {
+                await deleteResolution(resolution.id);
+                navigate('/resolutions');
+            } catch (error) {
+                console.error("Failed to delete resolution:", error);
+            }
+        }
     };
 
-    // Build line chart from entries
-    const sortedEntries = [...resolution.entries].sort((a, b) => new Date(a.date) - new Date(b.date));
-    let cumulative = 0;
-    const chartLabels = sortedEntries.map(e => new Date(e.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }));
-    const chartData = sortedEntries.map(e => {
-        cumulative += e.amount;
-        return cumulative;
+    if (loading) return <div className="page-container">Loading...</div>;
+    if (!resolution) return <div className="page-container">Resolution not found.</div>;
+
+    const percent = resolution.target > 0
+        ? Math.min(100, Math.round((resolution.current / resolution.target) * 100))
+        : 0;
+
+    const pace = analyzePace(resolution);
+
+    // Chart Data Preparation
+    const entries = resolution.entries || [];
+    // Create cumulative data for the chart
+    let runningTotal = 0;
+    const chartLabels = entries.map(e => new Date(e.date).toLocaleDateString(undefined, { month: 'short', day: 'numeric' }));
+    const chartDataPoints = entries.map(e => {
+        runningTotal += e.amount;
+        return runningTotal;
     });
 
-    const lineData = {
-        labels: chartLabels.length > 0 ? chartLabels : ['Start'],
-        datasets: [{
-            label: `${resolution.unit} Progress`,
-            data: chartData.length > 0 ? chartData : [0],
-            borderColor: '#9747ff',
-            backgroundColor: 'rgba(151, 71, 255, 0.1)',
-            fill: true,
-            tension: 0.4,
-            pointBackgroundColor: '#9747ff',
-            pointBorderWidth: 2,
-            pointRadius: 4,
-        }],
+    // If no entries, show 0 at start date
+    if (entries.length === 0) {
+        chartLabels.push(new Date(resolution.createdAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric' }));
+        chartDataPoints.push(0);
+    }
+
+    const chartData = {
+        labels: chartLabels,
+        datasets: [
+            {
+                fill: true,
+                label: 'Progress',
+                data: chartDataPoints,
+                borderColor: '#00e676',
+                backgroundColor: 'rgba(0, 230, 118, 0.1)',
+                tension: 0.4,
+            },
+        ],
     };
 
-    const lineOptions = {
+    const chartOptions = {
         responsive: true,
         maintainAspectRatio: false,
         plugins: {
             legend: { display: false },
+            tooltip: {
+                mode: 'index',
+                intersect: false,
+            },
         },
         scales: {
-            y: {
-                beginAtZero: true,
-                max: resolution.target * 1.1,
-                grid: { color: 'rgba(255,255,255,0.05)' },
-                ticks: { color: 'rgba(255,255,255,0.5)' },
-            },
             x: {
-                grid: { display: false },
-                ticks: { color: 'rgba(255,255,255,0.5)' },
+                grid: { color: 'rgba(255,255,255,0.05)' },
+                ticks: { color: 'rgba(255,255,255,0.6)' },
+            },
+            y: {
+                grid: { color: 'rgba(255,255,255,0.05)' },
+                ticks: { color: 'rgba(255,255,255,0.6)' },
+                suggestedMax: resolution.target,
             },
         },
-    };
-
-    const formatValue = (val) => {
-        if (resolution.category === 'financial') return Number(val).toLocaleString();
-        return val;
     };
 
     return (
         <div className="page-container">
-            <button className="btn btn-secondary btn-sm detail-back" onClick={() => navigate('/resolutions')}>
-                ← Back to Resolutions
-            </button>
+            <Link to="/dashboard" className="back-link">← Back to Dashboard</Link>
 
-            {/* Header */}
             <div className="detail-header">
                 <div>
-                    <div className="detail-category">
-                        <span>{CATEGORY_ICONS[resolution.category]}</span>
-                        <span className="detail-category-label">{resolution.category}</span>
-                    </div>
-                    <h1 className="page-title">{resolution.title}</h1>
-                    {resolution.description && (
-                        <p className="detail-desc">{resolution.description}</p>
-                    )}
+                    <span className={`detail-category-badge cat-${resolution.category}`}>
+                        {resolution.category === 'financial' ? '💰 Financial' :
+                            resolution.category === 'spiritual' ? '📖 Spiritual' : '✨ Custom'}
+                    </span>
+                    <h1 className="detail-title">{resolution.title}</h1>
+                    <p className="detail-meta">Deadline: {new Date(resolution.deadline).toLocaleDateString()}</p>
                 </div>
-                <button
-                    className="btn btn-danger btn-sm"
-                    onClick={() => setShowDeleteConfirm(true)}
-                >
-                    🗑️ Delete
-                </button>
+                <button className="btn btn-outline-danger" onClick={handleDelete}>Delete</button>
             </div>
 
-            {/* Delete confirmation */}
-            {showDeleteConfirm && (
-                <div className="delete-confirm glass-card">
-                    <p>Are you sure you want to delete this resolution? This cannot be undone.</p>
-                    <div className="delete-actions">
-                        <button className="btn btn-secondary btn-sm" onClick={() => setShowDeleteConfirm(false)}>Cancel</button>
-                        <button className="btn btn-danger btn-sm" onClick={handleDelete}>Yes, Delete</button>
-                    </div>
-                </div>
-            )}
-
-            {/* Progress Overview */}
-            <div className="detail-progress glass-card">
-                <div className="detail-progress-header">
-                    <div>
-                        <span className="detail-current">{formatValue(resolution.current)}</span>
-                        <span className="detail-unit"> {resolution.unit}</span>
-                    </div>
-                    <span className="detail-percent">{percent}%</span>
-                </div>
-                <div className="progress-track" style={{ height: '12px' }}>
-                    <div
-                        className={`progress-fill ${percent >= 100 ? 'success' : percent >= 50 ? '' : 'warning'}`}
-                        style={{ width: `${percent}%` }}
-                    />
-                </div>
-                <div className="detail-progress-footer">
-                    <span>Remaining: {formatValue(remaining)} {resolution.unit}</span>
-                    <span>Target: {formatValue(resolution.target)} {resolution.unit}</span>
-                </div>
-            </div>
-
-            {/* Chart + Log side by side */}
             <div className="detail-grid">
-                <div className="glass-card detail-chart-card">
-                    <h3>📈 Progress Over Time</h3>
-                    <div className="detail-chart-wrapper">
-                        <Line data={lineData} options={lineOptions} />
-                    </div>
-                </div>
+                {/* Main Progress Column */}
+                <div className="detail-main">
+                    <div className="glass-card detail-progress-card">
+                        <div className="progress-overview">
+                            <div>
+                                <span className="big-percent">{percent}%</span>
+                                <span className="progress-label">Completed</span>
+                            </div>
+                            <div className="text-right">
+                                <span className="current-val">{resolution.current}</span>
+                                <span className="target-val"> / {resolution.target} {resolution.unit}</span>
+                            </div>
+                        </div>
+                        <div className="progress-bar-container">
+                            <div className="progress-bar-fill" style={{ width: `${percent}%` }}></div>
+                        </div>
 
-                <div className="glass-card detail-log-card">
-                    <h3>✏️ Log Progress</h3>
-                    <form onSubmit={handleLog} className="log-form">
-                        <div className="form-group">
-                            <label className="form-label">
-                                Amount ({resolution.unit}) *
-                            </label>
+                        <div className="chart-container">
+                            <Line data={chartData} options={chartOptions} />
+                        </div>
+                    </div>
+
+                    <div className="glass-card log-entry-card">
+                        <h3>📝 Log Progress</h3>
+                        <form onSubmit={handleLogProgress} className="log-form">
                             <input
                                 type="number"
                                 className="form-input"
-                                placeholder={resolution.category === 'financial' ? '5000' : '3'}
-                                value={logAmount}
-                                onChange={e => setLogAmount(e.target.value)}
-                                min="1"
+                                placeholder={`Amount to add (${resolution.unit})`}
+                                value={entryAmount}
+                                onChange={(e) => setEntryAmount(e.target.value)}
+                                required
                             />
-                        </div>
-                        <div className="form-group">
-                            <label className="form-label">Note (optional)</label>
-                            <input
-                                type="text"
-                                className="form-input"
-                                placeholder="e.g., Saved from freelance work"
-                                value={logNote}
-                                onChange={e => setLogNote(e.target.value)}
-                            />
-                        </div>
-                        <button type="submit" className="btn btn-primary" style={{ width: '100%' }}>
-                            ➕ Log Progress
-                        </button>
-                    </form>
+                            <button type="submit" className="btn btn-primary">Add Entry</button>
+                        </form>
+                    </div>
 
-                    {/* Recent entries */}
-                    {resolution.entries.length > 0 && (
-                        <div className="log-history">
-                            <h4>Recent Entries</h4>
-                            <div className="log-entries">
-                                {[...resolution.entries].reverse().slice(0, 5).map(entry => (
-                                    <div key={entry.id} className="log-entry">
-                                        <div>
-                                            <span className="log-entry-amount">+{formatValue(entry.amount)} {resolution.unit}</span>
-                                            {entry.note && <span className="log-entry-note">{entry.note}</span>}
-                                        </div>
-                                        <span className="log-entry-date">
-                                            {new Date(entry.date).toLocaleDateString()}
-                                        </span>
-                                    </div>
-                                ))}
-                            </div>
+                    {entries.length > 0 && (
+                        <div className="entries-list">
+                            <h4>Recent Activity</h4>
+                            {entries.slice().reverse().map((entry) => (
+                                <div key={entry.id} className="entry-item glass-card">
+                                    <span className="entry-date">
+                                        {new Date(entry.date).toLocaleDateString()} {new Date(entry.date).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                    </span>
+                                    <span className="entry-amount">+{entry.amount} {resolution.unit}</span>
+                                </div>
+                            ))}
+                        </div>
+                    )}
+                </div>
+
+                {/* Sidebar Feedback Column */}
+                <div className="detail-sidebar">
+                    <FeedbackPanel resolution={resolution} pace={pace} />
+                    {resolution.description && (
+                        <div className="glass-card description-card">
+                            <h4>About this goal</h4>
+                            <p>{resolution.description}</p>
                         </div>
                     )}
                 </div>
             </div>
-
-            {/* Smart Feedback */}
-            <FeedbackPanel resolution={resolution} />
         </div>
     );
 }

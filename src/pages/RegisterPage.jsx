@@ -1,10 +1,11 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { register } from '../services/authService';
+import { useAuth } from '../context/AuthContext';
 import './AuthPages.css';
 
 export default function RegisterPage() {
     const navigate = useNavigate();
+    const { register } = useAuth();
     const [form, setForm] = useState({ name: '', email: '', password: '', church: '' });
     const [error, setError] = useState('');
     const [loading, setLoading] = useState(false);
@@ -13,7 +14,7 @@ export default function RegisterPage() {
         setForm(prev => ({ ...prev, [e.target.name]: e.target.value }));
     };
 
-    const handleSubmit = (e) => {
+    const handleSubmit = async (e) => {
         e.preventDefault();
         setError('');
         if (!form.name || !form.email || !form.password) {
@@ -26,10 +27,11 @@ export default function RegisterPage() {
         }
         setLoading(true);
         try {
-            register(form);
+            await register(form.name, form.email, form.password, form.church);
             navigate('/dashboard');
         } catch (err) {
-            setError(err.message);
+            console.error(err);
+            setError(err.message.replace('Firebase: ', ''));
             setLoading(false);
         }
     };

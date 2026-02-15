@@ -28,46 +28,50 @@ function AppLayout({ children, title }) {
   );
 }
 
+import { AuthProvider } from './context/AuthContext';
+
 function App() {
   return (
-    <BrowserRouter>
-      <Routes>
-        {/* Public routes */}
-        <Route path="/" element={<LandingPage />} />
-        <Route path="/register" element={<RegisterPage />} />
-        <Route path="/login" element={<LoginPage />} />
+    <AuthProvider>
+      <BrowserRouter>
+        <Routes>
+          {/* Public routes */}
+          <Route path="/" element={<LandingPage />} />
+          <Route path="/register" element={<RegisterPage />} />
+          <Route path="/login" element={<LoginPage />} />
 
-        {/* Protected routes with sidebar layout */}
-        <Route path="/dashboard" element={
-          <ProtectedRoute>
-            <AppLayout title="Dashboard">
-              <DashboardPage />
-            </AppLayout>
-          </ProtectedRoute>
-        } />
-        <Route path="/resolutions" element={
-          <ProtectedRoute>
-            <AppLayout title="My Resolutions">
-              <ResolutionsPage />
-            </AppLayout>
-          </ProtectedRoute>
-        } />
-        <Route path="/resolutions/new" element={
-          <ProtectedRoute>
-            <AppLayout title="New Resolution">
-              <NewResolutionPage />
-            </AppLayout>
-          </ProtectedRoute>
-        } />
-        <Route path="/resolutions/:id" element={
-          <ProtectedRoute>
-            <AppLayout title="Resolution Details">
-              <ResolutionDetailPage />
-            </AppLayout>
-          </ProtectedRoute>
-        } />
-      </Routes>
-    </BrowserRouter>
+          {/* Protected routes with sidebar layout */}
+          <Route path="/dashboard" element={
+            <ProtectedRoute>
+              <AppLayout title="Dashboard">
+                <DashboardPage />
+              </AppLayout>
+            </ProtectedRoute>
+          } />
+          <Route path="/resolutions" element={
+            <ProtectedRoute>
+              <AppLayout title="My Resolutions">
+                <ResolutionsPage />
+              </AppLayout>
+            </ProtectedRoute>
+          } />
+          <Route path="/resolutions/new" element={
+            <ProtectedRoute>
+              <AppLayout title="New Resolution">
+                <NewResolutionPage />
+              </AppLayout>
+            </ProtectedRoute>
+          } />
+          <Route path="/resolutions/:id" element={
+            <ProtectedRoute>
+              <AppLayout title="Resolution Details">
+                <ResolutionDetailPage />
+              </AppLayout>
+            </ProtectedRoute>
+          } />
+        </Routes>
+      </BrowserRouter>
+    </AuthProvider>
   );
 }
 

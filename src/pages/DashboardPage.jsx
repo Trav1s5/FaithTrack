@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { getCurrentUser } from '../services/authService';
+import { useAuth } from '../context/AuthContext';
 import { getResolutions, getProgressPercent } from '../services/resolutionService';
 import { analyzePace } from '../services/feedbackService';
 import {
@@ -20,13 +20,28 @@ ChartJS.register(ArcElement, Tooltip, Legend, CategoryScale, LinearScale, BarEle
 
 export default function DashboardPage() {
     const [resolutions, setResolutions] = useState([]);
-    const user = getCurrentUser();
+    const [loading, setLoading] = useState(true);
+    const { currentUser: user } = useAuth();
 
     useEffect(() => {
-        if (user) {
-            setResolutions(getResolutions(user.id));
+        async function fetchData() {
+            if (user) {
+                try {
+                    const data = await getResolutions(user.uid);
+                    setResolutions(data);
+                } catch (error) {
+                    console.error("Error fetching resolutions:", error);
+                } finally {
+                    setLoading(false);
+                }
+            }
         }
-    }, []);
+        fetchData();
+    }, [user]);
+
+    if (loading) {
+        return <div className="page-container">Loading...</div>;
+    }
 
     const totalResolutions = resolutions.length;
     const avgProgress = totalResolutions > 0
@@ -40,7 +55,6 @@ export default function DashboardPage() {
 
     // Category breakdown
     const categories = ['financial', 'spiritual', 'custom'];
-    const categoryCounts = categories.map(c => resolutions.filter(r => r.category === c).length);
     const categoryAvg = categories.map(c => {
         const catRes = resolutions.filter(r => r.category === c);
         if (catRes.length === 0) return 0;

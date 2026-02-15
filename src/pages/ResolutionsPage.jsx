@@ -1,20 +1,31 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { getCurrentUser } from '../services/authService';
+import { useAuth } from '../context/AuthContext';
 import { getResolutions } from '../services/resolutionService';
 import ResolutionCard from '../components/ResolutionCard';
 import './ResolutionsPage.css';
 
 export default function ResolutionsPage() {
     const [resolutions, setResolutions] = useState([]);
+    const [loading, setLoading] = useState(true);
     const [filter, setFilter] = useState('all');
-    const user = getCurrentUser();
+    const { currentUser: user } = useAuth();
 
     useEffect(() => {
-        if (user) {
-            setResolutions(getResolutions(user.id));
+        async function fetchData() {
+            if (user) {
+                try {
+                    const data = await getResolutions(user.uid);
+                    setResolutions(data);
+                } catch (error) {
+                    console.error(error);
+                } finally {
+                    setLoading(false);
+                }
+            }
         }
-    }, []);
+        fetchData();
+    }, [user]);
 
     const filtered = filter === 'all'
         ? resolutions
@@ -26,6 +37,8 @@ export default function ResolutionsPage() {
         { key: 'spiritual', label: 'Spiritual', icon: '📖' },
         { key: 'custom', label: 'Custom', icon: '✨' },
     ];
+
+    if (loading) return <div className="page-container">Loading...</div>;
 
     return (
         <div className="page-container">

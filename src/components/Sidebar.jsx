@@ -1,13 +1,13 @@
 import { NavLink, useNavigate } from 'react-router-dom';
-import { logout, getCurrentUser } from '../services/authService';
+import { useAuth } from '../context/AuthContext';
 import './Sidebar.css';
 
 export default function Sidebar({ isOpen, onToggle }) {
     const navigate = useNavigate();
-    const user = getCurrentUser();
+    const { currentUser: user, logout } = useAuth();
 
-    const handleLogout = () => {
-        logout();
+    const handleLogout = async () => {
+        await logout();
         navigate('/');
     };
 
