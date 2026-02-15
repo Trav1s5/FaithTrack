@@ -1,0 +1,172 @@
+.detail-back {
+    margin-bottom: var(--space-5);
+}
+
+.detail-header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    margin-bottom: var(--space-6);
+}
+
+.detail-category {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--space-2);
+    margin-bottom: var(--space-2);
+}
+
+.detail-category-label {
+    text-transform: capitalize;
+    font-size: var(--font-sm);
+    color: var(--text-secondary);
+    font-weight: 500;
+}
+
+.detail-desc {
+    color: var(--text-secondary);
+    font-size: var(--font-sm);
+    margin-top: var(--space-2);
+    max-width: 600px;
+}
+
+/* Delete Confirm */
+.delete-confirm {
+    margin-bottom: var(--space-5);
+    border-color: rgba(255, 23, 68, 0.3);
+    background: rgba(255, 23, 68, 0.05);
+}
+
+.delete-confirm p {
+    color: var(--text-secondary);
+    font-size: var(--font-sm);
+    margin-bottom: var(--space-4);
+}
+
+.delete-actions {
+    display: flex;
+    gap: var(--space-3);
+}
+
+/* Progress Overview */
+.detail-progress {
+    margin-bottom: var(--space-6);
+}
+
+.detail-progress-header {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    margin-bottom: var(--space-3);
+}
+
+.detail-current {
+    font-size: var(--font-3xl);
+    font-weight: 800;
+    color: var(--text-primary);
+}
+
+.detail-unit {
+    font-size: var(--font-lg);
+    color: var(--text-secondary);
+}
+
+.detail-percent {
+    font-size: var(--font-3xl);
+    font-weight: 800;
+    background: var(--gradient-primary);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+}
+
+.detail-progress-footer {
+    display: flex;
+    justify-content: space-between;
+    margin-top: var(--space-3);
+    font-size: var(--font-sm);
+    color: var(--text-tertiary);
+}
+
+/* Grid */
+.detail-grid {
+    display: grid;
+    grid-template-columns: 1.5fr 1fr;
+    gap: var(--space-6);
+    margin-bottom: var(--space-6);
+}
+
+.detail-chart-card h3,
+.detail-log-card h3 {
+    font-size: var(--font-base);
+    font-weight: 600;
+    margin-bottom: var(--space-5);
+    color: var(--text-secondary);
+}
+
+.detail-chart-wrapper {
+    height: 250px;
+}
+
+/* Log Form */
+.log-form {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-4);
+}
+
+.log-history {
+    margin-top: var(--space-6);
+    border-top: 1px solid var(--border-color);
+    padding-top: var(--space-4);
+}
+
+.log-history h4 {
+    font-size: var(--font-sm);
+    color: var(--text-secondary);
+    margin-bottom: var(--space-3);
+}
+
+.log-entries {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-2);
+}
+
+.log-entry {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: var(--space-2) var(--space-3);
+    background: var(--bg-glass);
+    border-radius: var(--radius-sm);
+}
+
+.log-entry-amount {
+    font-size: var(--font-sm);
+    font-weight: 600;
+    color: var(--success);
+    display: block;
+}
+
+.log-entry-note {
+    font-size: var(--font-xs);
+    color: var(--text-tertiary);
+    display: block;
+}
+
+.log-entry-date {
+    font-size: var(--font-xs);
+    color: var(--text-tertiary);
+}
+
+@media (max-width: 768px) {
+    .detail-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .detail-header {
+        flex-direction: column;
+        gap: var(--space-4);
+    }
+}
